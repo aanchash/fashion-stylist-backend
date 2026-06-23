@@ -1,12 +1,11 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+import base64
 from groq import Groq
 from vision import identify_clothing
-from PIL import Image
 from skin_tone import analyze_skin_tone
 from fastapi import UploadFile, File
-import io
 import json
 import os
 
@@ -77,12 +76,20 @@ The user has uploaded:
 
 Tasks:
 
-1. Identify EVERY uploaded wardrobe image individually.
+Wardrobe items have already been analyzed.
 
-Example:
-Item 1 = Burgundy off shoulder maxi dress
-Item 2 = Black leather boots
-Item 3 = Black strappy heels
+Use ONLY the wardrobe data provided.
+
+Do NOT identify images again.
+
+Do NOT invent new wardrobe items.
+
+Use ONLY the provided garmentType,
+primaryColor,
+style,
+occasion,
+material,
+pattern.
 
 2. Identify ALL possible complete outfits from the uploaded wardrobe.
 
@@ -274,20 +281,41 @@ Casual:
         wardrobe_descriptions = []
 
         for item in wardrobe:
+
             image_bytes = await item.read()
 
-            img = Image.open(
-                io.BytesIO(image_bytes)
-            ).convert("RGB")
+            base64_image = base64.b64encode(
+                image_bytes
+            ).decode("utf-8")
 
-            description = identify_clothing(img)
+            image_url = (
+                f"data:image/jpeg;base64,{base64_image}"
+            )
 
-            wardrobe_descriptions.append(description)
+            description = identify_clothing(
+                image_url
+            )
 
+            description = (
+                description
+                .replace("```json", "")
+                .replace("```", "")
+                .strip()
+            )
+
+            wardrobe_descriptions.append(
+               json.loads(description)
+)
         wardrobe_text = ""
 
-        for i, desc in enumerate(wardrobe_descriptions, start=1):
-            wardrobe_text += f"Item {i}: {desc}\n"
+        for i, item in enumerate(
+            wardrobe_descriptions,
+            start=1
+        ):
+            wardrobe_text += (
+                f"Item {i}: "
+                f"{json.dumps(item)}\n"
+            )
 
         groq_prompt = f"""
 You are an expert celebrity fashion stylist.

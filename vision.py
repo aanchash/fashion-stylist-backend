@@ -1,22 +1,63 @@
-from transformers import BlipProcessor, BlipForConditionalGeneration
+from groq import Groq
+from dotenv import load_dotenv
+import os
 
-processor = BlipProcessor.from_pretrained(
-    "Salesforce/blip-image-captioning-base"
+load_dotenv()
+
+client = Groq(
+    api_key=os.getenv("GROQ_API_KEY")
 )
 
-model = BlipForConditionalGeneration.from_pretrained(
-    "Salesforce/blip-image-captioning-base"
-)
+def identify_clothing(image_base64):
 
+    response = client.chat.completions.create(
+        model="meta-llama/llama-4-scout-17b-16e-instruct",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": """
+Analyze this fashion item.
 
-def identify_clothing(image):
-    inputs = processor(images=image, return_tensors="pt")
+Return ONLY JSON:
 
-    output = model.generate(**inputs)
+{
+  "garmentType":"",
+  "primaryColor":"",
+  "secondaryColor":"",
+  "style":"",
+  "occasion":"",
+  "material":"",
+  "pattern":""
+}
 
-    caption = processor.decode(
-        output[0],
-        skip_special_tokens=True
+Be highly specific.
+
+Examples:
+- lehenga
+- kurti
+- saree
+- jeans
+- blazer
+- dress
+- shirt
+- trousers
+
+Do not use generic words like outfit or clothing.
+"""
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": image_base64
+                        }
+                    }
+                ]
+            }
+        ],
+        temperature=0
     )
 
-    return caption
+    return response.choices[0].message.content
